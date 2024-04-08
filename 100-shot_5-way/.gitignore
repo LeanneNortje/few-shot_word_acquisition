@@ -9,7 +9,6 @@ data/scores/
 data/spokencoco/
 data/image_embeddings.npz
 data/image_embeddings_matching_set.npy
-!data/label_key.npz
 data/sampled_audio_data.npz
 data/sampled_img_data.npz
 data/sampled_img_ranks_and_scores.npz
