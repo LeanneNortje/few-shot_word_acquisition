@@ -1,0 +1,15 @@
+*.wav
+*.jpg
+*.ckpt
+*.npz
+*/__pycache__/*
+*/__pycache__/*.pyc
+
+data/
+examples/
+few-shot-sampling/audio_files/
+few-shot-sampling/dtw/
+few-shot-sampling/segment_examples/
+model_metadata/
+pretrained/
+support_set/
