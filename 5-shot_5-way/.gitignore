@@ -5,7 +5,6 @@
 */__pycache__/*
 */__pycache__/*.pyc
 
-data/scores/
 data/spokencoco/
 data/image_embeddings.npz
 data/image_embeddings_matching_set.npy

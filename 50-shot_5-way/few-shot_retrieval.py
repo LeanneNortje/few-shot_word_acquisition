@@ -238,9 +238,11 @@ parser.add_argument("--resume", action="store_true", dest="resume",
         help="load from exp_dir if True")
 parser.add_argument("--config-file", type=str, default='matchmap', choices=['matchmap'], help="Model config file.")
 parser.add_argument("--restore-epoch", type=int, default=-1, help="Epoch to generate accuracies for.")
-parser.add_argument("--image-base", default="../..", help="Model config file.")
+parser.add_argument("--image-base", default="../..", help="Path to MSCOCO.")
+parser.add_argument("--audio-base", default="../..", help="Path to SpokenCOCO.")
 command_line_args = parser.parse_args()
 restore_epoch = command_line_args.restore_epoch
+audio_path = command_line_args.__dict__.pop('audio_base')
 
 # Setting up model specifics
 heading(f'\nSetting up model files ')
@@ -256,7 +258,7 @@ alignments = {}
 prev = ''
 prev_wav = ''
 prev_start = 0
-with open(Path('../../Datasets/spokencoco/SpokenCOCO/words.txt'), 'r') as f:
+with open(Path(audio_path) / Path('words.txt'), 'r') as f:
     for line in f:
         wav, start, stop, label = line.strip().split()
         if label in concepts or (label == 'hydrant' and prev == 'fire' and wav == prev_wav):
@@ -342,7 +344,7 @@ else:
         rank, False
         )
 
-image_base = Path('../../Datasets/spokencoco/')
+image_base = Path(image_base)
 episodes = np.load(args["episodes_test"], allow_pickle=True)['episodes'].item()
 
 with torch.no_grad():
@@ -398,7 +400,7 @@ with torch.no_grad():
                 if lookup in alignments:
                     if w in alignments[lookup]:
 
-                        this_english_audio_feat, this_english_nframes = LoadAudio(image_base / 'SpokenCOCO' / wav, alignments[lookup][w], audio_conf)
+                        this_english_audio_feat, this_english_nframes = LoadAudio(image_base / wav, alignments[lookup][w], audio_conf)
                         this_english_audio_feat, this_english_nframes = PadFeat(this_english_audio_feat, target_length, padval)
                         _, _, this_english_output = audio_model(this_english_audio_feat.to(rank))
                         this_english_nframes = NFrames(this_english_audio_feat, this_english_output, this_english_nframes)  

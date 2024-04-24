@@ -17,8 +17,6 @@ data/*.json
 data/test_episodes.npz
 data/test_episodes_MSCOCO_labels.npz
 !data/test_keywords.txt
-data/train_lookup.npz
-data/val_lookup.npz
 data/words.txt
 
 examples/

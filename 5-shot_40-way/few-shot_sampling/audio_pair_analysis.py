@@ -25,7 +25,7 @@ for word in key:
     print(f'{key[word]:<3}: {word}')
 
 vocab = []
-with open('../data/test_keywords.txt', 'r') as f:
+with open('../data/40_test_keywords.txt', 'r') as f:
     for keyword in f:
         vocab.append(' '.join(keyword.split()))
 

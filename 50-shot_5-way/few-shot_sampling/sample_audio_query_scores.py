@@ -40,6 +40,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+BACKEND = "nccl"
+INIT_METHOD = "tcp://localhost:54321"
+
 audio_segments_dir = Path(args.seg_path)
 # train_save_fn = '../data/train_for_preprocessing.npz'
 ss_save_fn = '../support_set/support_set_50.npz'
@@ -50,6 +53,7 @@ files = Path(args.audio_path)
 train_fn = Path(files) / 'SpokenCOCO_train.json'
 train = {}
 pam = np.load("pam.npy")
+audio_dir = Path(args.audio_path)
 
 vocab = []
 with open('../data/test_keywords.txt', 'r') as f:
@@ -73,19 +77,17 @@ s_audio = {}
 s_wavs = []
 
 for wav_name in tqdm(support_set):
-
-    ss_path = list(support_set_dir.rglob(f'**/{wav_name}*.npz'))[0]
     wav, img, spkr, start, end, word = support_set[wav_name]
     fn = Path(wav).relative_to(*Path(wav).parts[:1]).with_suffix('.npz')
     fn = audio_segments_dir / fn
-    query = np.load(ss_path)
+    query = np.load(fn)
+    x = query["codes"][query["boundaries"][:-1]]
 
-    x = query["codes"]#[query["boundaries"][:-1]]
-    # x0, = np.where(query["boundaries"] <= int(start))
-    # x0 = x0[-1]
-    # xn, = np.where(query["boundaries"] >= int(end))
-    # xn = xn[0]
-    # x = x[x0-1:xn+1]
+    x0, = np.where(query["boundaries"] <= int(start))
+    x0 = x0[-1]
+    xn, = np.where(query["boundaries"] >= int(end))
+    xn = xn[0]
+    x = x[x0-1:xn+1]
 
     if word not in s_audio: s_audio[word] = []
     s_audio[word].append(x)
@@ -96,7 +98,7 @@ with open(train_fn, 'r') as f:
 
 data = data['data']
 query_scores = {}
-# record = {}
+record = {}
 
 for q_word in s_audio:
     id = key[q_word]
@@ -107,46 +109,48 @@ for q_word in s_audio:
             wav_name = Path(wav).stem
             if wav_name in s_wavs: continue
 
-            if id not in query_scores: query_scores[id] = {'values': [], 'wavs': [], 'ss_ind': []}
+            if id not in query_scores: query_scores[id] = {'values': [], 'wavs': [], 'ss_index': []}
 
             fn = Path(wav).relative_to(*Path(wav).parts[:1]).with_suffix('.npz')
             fn = audio_segments_dir / fn
             test = np.load(fn)
-            y = test["codes"]#[test["boundaries"][:-1]]
+            y = test["codes"][test["boundaries"][:-1]]
 
             max_score = -np.inf
-            max_ss_wav = -1
             for i_x, x in enumerate(s_audio[q_word]):
-                path, p, q, score = align_semiglobal(x, y, pam, 1)
+                path, p, q, score = align_semiglobal(x, y, pam, 3)
                 indexes, = np.where(np.array(p) != -1)
                 if len(indexes) != 0:
-                    start, end = indexes[0], indexes[-1]
+                    start, end = indexes[1], indexes[-1]
                     norm_score = score / (end - start)
 
                     if norm_score > max_score: 
                         max_score = norm_score
+                        max_ind = i_x
                         # if wav not in record: record[wav] = {}
-                        max_ss_wav = i_x
                         # record[wav][id] = (path, start, end, p, q, indexes)
             query_scores[id]['values'].append(max_score)
-            query_scores[id]['wavs'].append(wav)   
-            query_scores[id]['ss_ind'].append(max_ss_wav)    
+            query_scores[id]['wavs'].append(wav)    
+            query_scores[id]['ss_index'].append(max_ind)   
     
+        # if len(query_scores[id]['values']) == 1900: break
+
 
 for id in query_scores:
-    print(len(query_scores[id]['values']), len(query_scores[id]['wavs']), len(query_scores[id]['ss_ind']))
+    print(len(query_scores[id]['values']), len(query_scores[id]['wavs']))
 
 save_dir = Path('segment_examples')
-audio_dir = Path(args.audio_path)#Path("../../Datasets/spokencoco/SpokenCOCO")
+# audio_dir = Path("../../Datasets/spokencoco/SpokenCOCO")
 top_N = 600
 newly_labeled = {}
 
 for id in query_scores:
     indices = np.argsort(query_scores[id]['values'])[::-1]
-    count = 0
+    q_word = id_to_word_key[id]
     i = 0
-    while i < top_N and count <= len(query_scores[id]['values']):
-        wav = Path(query_scores[id]['wavs'][indices[count]])
+    count = 0
+    while count < top_N:
+        wav = Path(query_scores[id]['wavs'][indices[i]])
         wav_name = wav.stem
         fn = save_dir / Path(id_to_word_key[id]) / wav_name
         fn.parent.mkdir(parents=True, exist_ok=True)
@@ -154,10 +158,11 @@ for id in query_scores:
         segment_fn = wav.relative_to(*wav.parts[:1]).with_suffix('.npz')
         segment_fn = audio_segments_dir / segment_fn
         test = np.load(segment_fn)
-        ind = query_scores[id]['ss_ind'][indices[count]]
-        path, p, q, score = align_semiglobal(s_audio[q_word][ind], test["codes"], pam, 3)
-        indexes, = np.where(np.array(p) != -1)
-        start, end = indexes[0], indexes[-1]
+        y = test["codes"][test["boundaries"][:-1]]
+
+        ind = query_scores[id]['ss_index'][indices[i]]
+
+        path, p, q, score = align_semiglobal(s_audio[q_word][ind], y, pam, 3)
         # path, start, end, p, q, indexes = record[str(wav)][id]
         _, b0 = path[start - 1]
         _, bT = path[end]
@@ -173,8 +178,8 @@ for id in query_scores:
 
             if id not in newly_labeled: newly_labeled[id] = []
             newly_labeled[id].append(wav)
-            i += 1
-        count += 1
+            count += 1
+        i += 1
 
 for id in newly_labeled:
     print(id, len(newly_labeled[id]))
