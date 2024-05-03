@@ -18,6 +18,8 @@ Copy the ```support_set``` folder from [here](https://github.com/LeanneNortje/Mu
 ```
 If this support set is not used, take note that the ```label_key.npz``` file should be regenerated using the support set repo.
 Download the MSCOCO data [here](https://cocodataset.org/#download). We used the 2014 splits, but all the image samples can be taken from the 2017 splits since the few-shot instances are in both. Just replace the ```train_2014``` and ```val_2014``` in the image names with ```train_2017``` and ```val_2017```.
+To get forced alignments required for testing, use the [Montreal forced aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/). 
+Or simply use the words.txt file in the releases and paste it in the SpokenCOCO folder that has to be downloaded [here](https://groups.csail.mit.edu/sls/downloads/placesaudio/) regardless.
 
 ## QbERT
 
